@@ -1,0 +1,17 @@
+{
+  "name": "my-first-promise",
+  "version": "0.0.1",
+  "description": "simple q promise",
+  "scripts": {
+    "test": "karma start karma.conf.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "jasmine": "^2.9.0",
+    "karma": "^2.0.0",
+    "karma-chrome-launcher": "^2.2.0",
+    "karma-jasmine": "^1.1.1"
+  }
+}
