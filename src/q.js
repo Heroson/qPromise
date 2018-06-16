@@ -14,9 +14,14 @@ function Q() {
     if (!pending) return
 
     pending.forEach(function(handles) {
-      var fn = handles[state.status]
-      if(typeof fn === 'function'){
-        fn(state.value)
+      var deferred = handles[0]
+      var fn= handles[state.status]
+      if(typeof fn === 'function'){ // 允许省略成功回调或失败回调，因此需要在这里进行检测
+        deferred.resolve(fn(state.value))
+      }else if(state.status === 1){ // 如果promise链中返回值不是函数，则直接传递到下一个then处理
+        deferred.resolve(state.value)
+      }else{
+        deferred.reject(state.value)
       }
     })
 
@@ -27,14 +32,23 @@ function Q() {
     this.$$state = {}
   }
   Promise.prototype.then = function(onFulfilled, onRejected) {
+    var result = new Deferred() //  每次then都生成一个deferred对象，并把其promise作为返回值，就可以链式绑定处理函数，上一个then控制下一个then的执行时机
     this.$$state.pending = this.$$state.pending || []
-    this.$$state.pending.push([null, onFulfilled, onRejected])
+    this.$$state.pending.push([result, onFulfilled, onRejected])
     if (this.$$state.status > 0) { // 如果在回调注册之前，已经在resolved状态下，依然执行回调
       scheduleProcessQueue(this.$$state)
     }
+    return result.promise
   }
   Promise.prototype.catch = function(onRejected){
     return this.then(null, onRejected)
+  }
+  Promise.prototype.finally = function(callback){
+    return this.then(function(){
+      callback()
+    }, function(){
+      callback()
+    })
   }
 
   function Deferred() { // 生产者
