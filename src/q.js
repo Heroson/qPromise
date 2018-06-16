@@ -15,13 +15,17 @@ function Q() {
 
     pending.forEach(function(handles) {
       var deferred = handles[0]
-      var fn= handles[state.status]
-      if(typeof fn === 'function'){ // 允许省略成功回调或失败回调，因此需要在这里进行检测
-        deferred.resolve(fn(state.value))
-      }else if(state.status === 1){ // 如果promise链中返回值不是函数，则直接传递到下一个then处理
-        deferred.resolve(state.value)
-      }else{
-        deferred.reject(state.value)
+      var fn = handles[state.status]
+      try {
+        if (typeof fn === 'function') { // 允许省略成功回调或失败回调，因此需要在这里进行检测
+          deferred.resolve(fn(state.value)) // 注意这里隐含了如果catch传入的是一个回调函数，那么其状态将会变成resolve，其返回值也会成为下一个then的初始参数
+        } else if (state.status === 1) { // 如果promise链中返回值不是函数，则直接传递到下一个then处理
+          deferred.resolve(state.value)
+        } else {
+          deferred.reject(state.value)
+        }
+      } catch (e) { // 如果程序发生错误，则直接reject
+        deferred.reject(e)
       }
     })
 
@@ -40,13 +44,13 @@ function Q() {
     }
     return result.promise
   }
-  Promise.prototype.catch = function(onRejected){
+  Promise.prototype.catch = function(onRejected) {
     return this.then(null, onRejected)
   }
-  Promise.prototype.finally = function(callback){
-    return this.then(function(){
+  Promise.prototype.finally = function(callback) {
+    return this.then(function() {
       callback()
-    }, function(){
+    }, function() {
       callback()
     })
   }

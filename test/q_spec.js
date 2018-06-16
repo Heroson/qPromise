@@ -299,22 +299,57 @@ describe('$q', function() {
     })
   });
 
-  it('treats catch return value as resolution', function(done){
+  it('treats catch return value as resolution', function(done) {
     var d = $q.defer()
 
     var fulfilledSpy = jasmine.createSpy()
-    d.promise.catch(function(){
+    d.promise.catch(function() {
       return 42
     }).then(fulfilledSpy)
 
     d.reject('fail')
 
-    setTimeout(function(){
-      setTimeout(function(){
+    setTimeout(function() {
+      setTimeout(function() {
         expect(fulfilledSpy).toHaveBeenCalledWith(42)
         done()
       })
     })
+  })
+
+  it('rejects chained promise when handler throws', function(done) {
+    var d = $q.defer();
+    var rejectedSpy = jasmine.createSpy();
+    d.promise.then(function() {
+      throw 'fail';
+    }).catch(rejectedSpy);
+    d.resolve(42);
+
+    setTimeout(function() {
+      setTimeout(function() {
+        expect(rejectedSpy).toHaveBeenCalledWith('fail');
+        done()
+      })
+    })
+
+  })
+
+  it('dose not reject current promise when handler throws', function(done) {
+    var d = $q.defer();
+    var rejectedSpy = jasmine.createSpy();
+    d.promise.then(function() {
+      throw 'fail';
+    });
+    d.promise.catch(rejectedSpy);
+    d.resolve(42);
+    
+    setTimeout(function(){
+      setTimeout(function(){
+        expect(rejectedSpy).not.toHaveBeenCalled()
+        done()
+      })
+    })
+    
   })
 
 })
