@@ -345,29 +345,185 @@ describe('$q', function() {
   //   })
   // })
 
-  it('waits on promise returned from handler', function(done) {
-    var d = $q.defer();
+  // it('waits on promise returned from handler', function(done) {
+  //   var d = $q.defer();
 
-    var fulfilledSpy = jasmine.createSpy();
-    d.promise.then(function(v) {
+  //   var fulfilledSpy = jasmine.createSpy();
+  //   d.promise.then(function(v) {
+  //     var d2 = $q.defer();
+  //     d2.resolve(v + 1);
+  //     return d2.promise;
+  //   }).then(function(v) {
+  //     return v * 2;
+  //   }).then(fulfilledSpy);
+  //   d.resolve(20);
+
+  //   setTimeout(function() { // 因为回调中返回的是promise，需要多加一层setTimeout
+  //     setTimeout(function() {
+  //       setTimeout(function() {
+  //         setTimeout(function() {
+  //           expect(fulfilledSpy).toHaveBeenCalledWith(42);
+  //           done()
+  //         })
+  //       })
+  //     })
+  //   })
+  // });
+
+  // it('allows chaining handlers on finally, with original value', function(done) {
+  //   var d = $q.defer();
+
+  //   var fulflledSpy = jasmine.createSpy();
+  //   d.promise.then(function(result) {
+  //     return result + 1;
+  //   }).finally(function(result) {
+  //     return result * 2;
+  //   }).then(fulflledSpy);
+  //   d.resolve(20);
+
+  //   setTimeout(function() {
+  //     setTimeout(function() {
+  //       setTimeout(function() {
+  //         expect(fulflledSpy).toHaveBeenCalledWith(21);
+  //         done()
+  //       })
+  //     })
+  //   })
+
+  // });
+
+  // it('allows chaining handlers on finally, with original rejection', function(done) {
+  //   var d = $q.defer();
+
+  //   var rejectedSpy = jasmine.createSpy();
+  //   d.promise.then(function(result) {
+  //     throw 'fail';
+  //   }).finally(function() {}).catch(rejectedSpy);
+  //   d.resolve(20);
+
+  //   setTimeout(function() {
+  //     setTimeout(function() {
+  //       setTimeout(function() { // 因为finally传递reject的时候新建了一个deferred，所以需要多加一层
+  //         setTimeout(function() {
+  //           expect(rejectedSpy).toHaveBeenCalledWith('fail');
+  //           done()
+  //         })
+  //       })
+  //     })
+  //   })
+  // });
+
+  it('resolves to orig value when nested promise resolves', function(done) {
+    var d = $q.defer();
+    var fulflledSpy = jasmine.createSpy();
+    var resolveNested;
+    d.promise.then(function(result) {
+      return result + 1;
+    }).finally(function(result) {
       var d2 = $q.defer();
-      d2.resolve(v + 1);
+      resolveNested = function() {
+        d2.resolve('abc');
+      };
       return d2.promise;
-    }).then(function(v) {
-      return v * 2;
-    }).then(fulfilledSpy);
+    }).then(function(val) {
+      fulflledSpy(val)
+      expect(fulflledSpy).toHaveBeenCalledWith(21);
+    });
+
     d.resolve(20);
 
-    setTimeout(function(){ // 因为回调中返回的是promise，需要多加一层setTimeout
-      setTimeout(function(){
-        setTimeout(function(){
-          setTimeout(function(){
-            expect(fulfilledSpy).toHaveBeenCalledWith(42);
+    setTimeout(function() {
+      setTimeout(function() {
+        setTimeout(function() {
+          setTimeout(function() {
+            expect(fulflledSpy).not.toHaveBeenCalled();
+            resolveNested()
             done()
           })
         })
       })
     })
+
+
   });
 
+  it('rejects to original value when nested promise resolves', function(done) {
+    var d = $q.defer();
+
+    var rejectedSpy = jasmine.createSpy();
+    var resolveNested;
+
+    d.promise.then(function(result) {
+      throw 'fail'
+    }).finally(function(result) {
+      var d2 = $q.defer();
+      resolveNested = function() {
+        d2.resolve('abc');
+      };
+      return d2.promise;
+    }).catch(function(reason) {
+      rejectedSpy(reason)
+      expect(rejectedSpy).toHaveBeenCalledWith('fail');
+    });
+
+    d.resolve(20);
+
+    setTimeout(function() {
+      setTimeout(function() {
+        setTimeout(function() { // 因为finally传递reject的时候新建了一个deferred，所以需要多加一层
+          setTimeout(function() {
+            expect(rejectedSpy).not.toHaveBeenCalled();
+            resolveNested()
+            done()
+          })
+        })
+      })
+    })
+
+    function next() {
+      resolveNested();
+      setTimeout(function() {
+        setTimeout(function() {
+
+          done()
+        })
+      })
+    }
+
+  });
+
+  it('rejects when nested promise rejects in finally', function() {
+    var d = $q.defer();
+    var fulflledSpy = jasmine.createSpy();
+    var rejectedSpy = jasmine.createSpy();
+    var rejectNested;
+
+    d.promise.then(function(result) {
+      return result + 1;
+    }).finally(function(result) {
+      var d2 = $q.defer();
+      rejectNested = function() {
+        d2.reject('fail');
+      };
+      return d2.promise;
+    }).then(fulflledSpy, rejectedSpy);
+    d.resolve(20);
+
+    setTimeout(function() {
+      setTimeout(function() {
+        expect(fulflledSpy).not.toHaveBeenCalled();
+        next();
+      })
+    })
+
+    function next() {
+      resolveNested();
+      setTimeout(function() {
+        expect(fulflledSpy).not.toHaveBeenCalled();
+        expect(rejectedSpy).toHaveBeenCalledWith('fail');
+        done()
+      })
+    }
+
+  });
 })

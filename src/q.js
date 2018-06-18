@@ -32,6 +32,27 @@ function Q() {
     state.pending = undefined // 如果不清空之前的，当在resolved状态下，下一次绑定回调时也会触发scheduleProcessQueue，之前的回调被重复调用，就无法满足回调函数只调用一次的要求
   }
 
+  function makePromise(value, resolved){
+    var d = new Deferred()
+    if(resolved){
+      d.resolve(value)
+    }else{
+      d.reject(value)
+    }
+    return d.promise
+  }
+
+  function handleFinallyCallback(callback, value, resolved){
+    var callbackValue = callback()
+    if(callbackValue && callbackValue.then){
+      return callbackValue.then(function(){ // 如果 reject 回调返回的是 promise,则等待该 promise 解决，才继续往下传递
+        return makePromise(value, resolved)
+      })
+    }else{
+      return makePromise(value, resolved)
+    }
+  }
+
   function Promise() { // 消费者
     this.$$state = {}
   }
@@ -48,10 +69,11 @@ function Q() {
     return this.then(null, onRejected)
   }
   Promise.prototype.finally = function(callback) {
-    return this.then(function() {
-      callback()
-    }, function() {
-      callback()
+
+    return this.then(function(value) {
+      return handleFinallyCallback(callback, value, true)
+    }, function(rejection) { // 因为reject回调可能为一个函数，会走processQueue的resolve方法，所以必须新建一个新的deferred对象以传递reject状态，让下一个reject处理函数得到调用
+      return handleFinallyCallback(callback, rejection, false)
     })
   }
 
@@ -62,7 +84,7 @@ function Q() {
     if (this.promise.$$state.status) { // 如果状态不是pending，则不再允许resolve
       return
     }
-    if (value && typeof value.then === 'function'){ // 如果传入的是一个promise，则等待该promise解决后才向下继续promise链
+    if (value && typeof value.then === 'function') { // 如果传入的是一个promise，则等待该promise解决后才向下继续promise链，兼容其他thenable对象
       value.then(
         this.resolve.bind(this),
         this.reject.bind(this)
