@@ -62,9 +62,16 @@ function Q() {
     if (this.promise.$$state.status) { // 如果状态不是pending，则不再允许resolve
       return
     }
-    this.promise.$$state.value = value
-    this.promise.$$state.status = 1
-    scheduleProcessQueue(this.promise.$$state)
+    if (value && typeof value.then === 'function'){ // 如果传入的是一个promise，则等待该promise解决后才向下继续promise链
+      value.then(
+        this.resolve.bind(this),
+        this.reject.bind(this)
+      )
+    } else {
+      this.promise.$$state.value = value
+      this.promise.$$state.status = 1
+      scheduleProcessQueue(this.promise.$$state)
+    }
   }
   Deferred.prototype.reject = function(reason) {
     if (this.promise.$$state.status) { // 如果promise的状态不是pending，则不再允许reject
