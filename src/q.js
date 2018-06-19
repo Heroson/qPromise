@@ -56,10 +56,10 @@ function Q() {
   function Promise() { // 消费者
     this.$$state = {}
   }
-  Promise.prototype.then = function(onFulfilled, onRejected) {
+  Promise.prototype.then = function(onFulfilled, onRejected, onProgress) {
     var result = new Deferred() //  每次then都生成一个deferred对象，并把其promise作为返回值，就可以链式绑定处理函数，上一个then控制下一个then的执行时机
     this.$$state.pending = this.$$state.pending || []
-    this.$$state.pending.push([result, onFulfilled, onRejected])
+    this.$$state.pending.push([result, onFulfilled, onRejected, onProgress])
     if (this.$$state.status > 0) { // 如果在回调注册之前，已经在resolved状态下，依然执行回调
       scheduleProcessQueue(this.$$state)
     }
@@ -68,13 +68,13 @@ function Q() {
   Promise.prototype.catch = function(onRejected) {
     return this.then(null, onRejected)
   }
-  Promise.prototype.finally = function(callback) {
+  Promise.prototype.finally = function(callback, progressBack) {
 
     return this.then(function(value) {
       return handleFinallyCallback(callback, value, true)
     }, function(rejection) { // 因为reject回调可能为一个函数，会走processQueue的resolve方法，所以必须新建一个新的deferred对象以传递reject状态，让下一个reject处理函数得到调用
       return handleFinallyCallback(callback, rejection, false)
-    })
+    }, progressBack)
   }
 
   function Deferred() { // 生产者
@@ -87,7 +87,8 @@ function Q() {
     if (value && typeof value.then === 'function') { // 如果传入的是一个promise，则等待该promise解决后才向下继续promise链，兼容其他thenable对象
       value.then(
         this.resolve.bind(this),
-        this.reject.bind(this)
+        this.reject.bind(this),
+        this.notify.bind(this)
       )
     } else {
       this.promise.$$state.value = value
@@ -102,6 +103,25 @@ function Q() {
     this.promise.$$state.value = reason
     this.promise.$$state.status = 2
     scheduleProcessQueue(this.promise.$$state)
+  }
+  Deferred.prototype.notify = function(progress){
+    var pending = this.promise.$$state.pending
+    if(pending && pending.length && !this.promise.$$state.status){
+      setTimeout(function(){
+        pending.forEach(function(handlers){
+          var deferred = handlers[0]
+          var progressBack = handlers[3]
+          try{
+            deferred.notify(typeof progressBack === 'function'
+              ? progressBack(progress)
+              : progress
+            )
+          } catch(e){
+            console.log(e)
+          }
+        })
+      })
+    }
   }
 
   function defer() {
