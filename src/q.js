@@ -53,6 +53,18 @@ function Q() {
     }
   }
 
+  function reject(rejection){
+    var d = defer()
+    d.reject(rejection)
+    return d.promise
+  }
+
+  function when(value, callback, errback, progressback){
+    var d = defer()
+    d.resolve(value)
+    return d.promise.then(callback, errback, progressback);
+  }
+
   function Promise() { // 消费者
     this.$$state = {}
   }
@@ -60,7 +72,7 @@ function Q() {
     var result = new Deferred() //  每次then都生成一个deferred对象，并把其promise作为返回值，就可以链式绑定处理函数，上一个then控制下一个then的执行时机
     this.$$state.pending = this.$$state.pending || []
     this.$$state.pending.push([result, onFulfilled, onRejected, onProgress])
-    if (this.$$state.status > 0) { // 如果在回调注册之前，已经在resolved状态下，依然执行回调
+    if (this.$$state.status > 0) { // 如果在回调注册之前，已经在resolved或rejected状态下，依然执行回调
       scheduleProcessQueue(this.$$state)
     }
     return result.promise
@@ -129,6 +141,9 @@ function Q() {
   }
 
   return {
-    defer: defer
+    defer: defer,
+    reject: reject,
+    when: when,
+    resolve: when
   }
 }
