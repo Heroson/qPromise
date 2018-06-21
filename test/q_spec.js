@@ -399,9 +399,9 @@ describe('$q', function() {
 
     var rejectedSpy = jasmine.createSpy();
     d.promise.then(function(result) {
-      throw 'fail';
-    }).finally(function() {})
-    .catch(rejectedSpy);
+        throw 'fail';
+      }).finally(function() {})
+      .catch(rejectedSpy);
     d.resolve(20);
 
     setTimeout(function() {
@@ -498,7 +498,7 @@ describe('$q', function() {
         d2.reject('fail');
       };
       return d2.promise;
-    }).then(fulflledSpy, function(reason){
+    }).then(fulflledSpy, function(reason) {
       rejectedSpy(reason)
       expect(rejectedSpy).toHaveBeenCalledWith('fail');
     });
@@ -774,5 +774,92 @@ describe('$q', function() {
     })
 
   });
+
+  describe('all', function() {
+
+    it('can resolve an array of promises to array of results', function(done) {
+      var promise = $q.all([$q.when(1), $q.when(2), $q.when(3)]);
+      var fulfilledSpy = jasmine.createSpy();
+      promise.then(fulfilledSpy);
+
+      setTimeout(function() {
+        setTimeout(function() {
+          setTimeout(function() {
+            expect(fulfilledSpy).toHaveBeenCalledWith([1, 2, 3]);
+            done()
+          })
+        })
+      })
+    });
+
+    it('can resolve an object of promises to an object of results', function(done) {
+      var promise = $q.all({
+        a: $q.when(1),
+        b: $q.when(2)
+      });
+      var fulfilledSpy = jasmine.createSpy();
+      promise.then(function(value) {
+        fulfilledSpy(value)
+        expect(fulfilledSpy).toHaveBeenCalledWith({
+          a: 1,
+          b: 2
+        });
+        done()
+      });
+
+    });
+
+
+    it('resolves an empty array of promises immediately', function(done) {
+      var promise = $q.all([]);
+      var fulfilledSpy = jasmine.createSpy();
+      promise.then(fulfilledSpy);
+
+      setTimeout(function() {
+        expect(fulfilledSpy).toHaveBeenCalledWith([]);
+        done()
+      })
+
+    });
+
+    it('resolves an empty object of promises immediately', function(done) {
+      var promise = $q.all({});
+      var fulfilledSpy = jasmine.createSpy();
+      promise.then(fulfilledSpy);
+
+      setTimeout(function() {
+        expect(fulfilledSpy).toHaveBeenCalledWith({});
+        done()
+      })
+
+    });
+
+    it('rejects when any of the promises rejects', function(done) {
+      var promise = $q.all([$q.when(1), $q.when(2), $q.reject('fail')]);
+      var fulfilledSpy = jasmine.createSpy();
+      var rejectedSpy = jasmine.createSpy();
+      promise.then(fulfilledSpy, rejectedSpy);
+
+      setTimeout(function() {
+        setTimeout(function() {
+          expect(fulfilledSpy).not.toHaveBeenCalled();
+          expect(rejectedSpy).toHaveBeenCalledWith('fail');
+          done()
+        });
+      });
+    });
+
+    // it('wraps non-promises in the input collection', function() {
+    //   var promise = $q.all([$q.when(1), 2, 3]);
+    //   var fulfilledSpy = jasmine.createSpy();
+    //   promise.then(fulfilledSpy);
+
+    //   set
+    //   expect(fulfilledSpy).toHaveBeenCalledWith([1, 2, 3]);
+    // })
+
+  })
+
+
 
 })

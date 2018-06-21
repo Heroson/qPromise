@@ -32,37 +32,87 @@ function Q() {
     state.pending = undefined // 如果不清空之前的，当在resolved状态下，下一次绑定回调时也会触发scheduleProcessQueue，之前的回调被重复调用，就无法满足回调函数只调用一次的要求
   }
 
-  function makePromise(value, resolved){
+  function makePromise(value, resolved) {
     var d = new Deferred()
-    if(resolved){
+    if (resolved) {
       d.resolve(value)
-    }else{
+    } else {
       d.reject(value)
     }
     return d.promise
   }
 
-  function handleFinallyCallback(callback, value, resolved){
+  function handleFinallyCallback(callback, value, resolved) {
     var callbackValue = callback()
-    if(callbackValue && callbackValue.then){
-      return callbackValue.then(function(){ // 如果 reject 回调返回的是 promise,则等待该 promise 解决，才继续往下传递
+    if (callbackValue && callbackValue.then) {
+      return callbackValue.then(function() { // 如果 reject 回调返回的是 promise,则等待该 promise 解决，才继续往下传递
         return makePromise(value, resolved)
       })
-    }else{
+    } else {
       return makePromise(value, resolved)
     }
   }
 
-  function reject(rejection){
+  function reject(rejection) {
     var d = defer()
     d.reject(rejection)
     return d.promise
   }
 
-  function when(value, callback, errback, progressback){
+  function when(value, callback, errback, progressback) {
     var d = defer()
     d.resolve(value)
     return d.promise.then(callback, errback, progressback);
+  }
+
+  function all(promises) {
+    var isArray = promises instanceof Array
+    var results = isArray ? [] : {}
+    var counter = 0
+    var d = defer()
+    var consume = function(item) {
+      item.then(function(value) {
+        results[index] = value
+        counter--
+        if (!counter) { // 通过计数器判断全部的promise是否已完成，若是则$q.all也完成了
+          d.resolve(results)
+        }
+      })
+    }
+    if (isArray) {
+      promises.forEach(function(promise, index) {
+        counter++
+        // consume(promise)
+        promise.then(function(value) {
+          results[index] = value
+          counter--
+          if (!counter) { // 通过计数器判断全部的promise是否已完成，若是则$q.all也完成了
+            d.resolve(results)
+          }
+        }, function(rejection){
+          d.reject(rejection)
+        })
+      })
+    } else {
+      for (var prop in promises) {
+        if (promises.hasOwnProperty(prop)) {
+          counter++
+          (function(p) { // 利用闭包记忆当前属性值
+            promises[p].then(function(value) {
+              results[p] = value
+              counter--
+              if (!counter) { // 通过计数器判断全部的promise是否已完成，若是则$q.all也完成了
+                d.resolve(results)
+              }
+            })
+          })(prop)
+        }
+      }
+    }
+    if(!counter){ // 解决传入空数组、空对象的
+      d.resolve(results);
+    }
+    return d.promise
   }
 
   function Promise() { // 消费者
@@ -116,19 +166,19 @@ function Q() {
     this.promise.$$state.status = 2
     scheduleProcessQueue(this.promise.$$state)
   }
-  Deferred.prototype.notify = function(progress){
+  Deferred.prototype.notify = function(progress) {
     var pending = this.promise.$$state.pending
-    if(pending && pending.length && !this.promise.$$state.status){
-      setTimeout(function(){
-        pending.forEach(function(handlers){
+    if (pending && pending.length && !this.promise.$$state.status) {
+      setTimeout(function() {
+        pending.forEach(function(handlers) {
           var deferred = handlers[0]
           var progressBack = handlers[3]
-          try{
-            deferred.notify(typeof progressBack === 'function'
-              ? progressBack(progress)
-              : progress
+          try {
+            deferred.notify(typeof progressBack === 'function' ?
+              progressBack(progress) :
+              progress
             )
-          } catch(e){
+          } catch (e) {
             console.log(e)
           }
         })
@@ -144,6 +194,7 @@ function Q() {
     defer: defer,
     reject: reject,
     when: when,
-    resolve: when
+    resolve: when,
+    all: all
   }
 }
