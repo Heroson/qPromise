@@ -84,7 +84,6 @@ function Q() {
         counter++
         // consume(promise)
         when(promise).then(function(value) { // when方法可以兼容普通值（非promise）
-          results[p] = value
           results[index] = value
           counter--
           if (!counter) { // 通过计数器判断全部的promise是否已完成，若是则$q.all也完成了
@@ -100,6 +99,7 @@ function Q() {
           counter++
           (function(p) { // 利用闭包记忆当前属性值
             when(promises[p]).then(function(value) {
+              results[p] = value
               counter--
               if (!counter) { // 通过计数器判断全部的promise是否已完成，若是则$q.all也完成了
                 d.resolve(results)
