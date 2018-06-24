@@ -192,17 +192,24 @@ function Q() {
     return new Deferred()
   }
 
-  var $Q = function(){
-
+  var $Q = function(resolver){
+    if(typeof resolver !== 'function'){
+      throw 'Expected function, got ' + resolver;
+    }
+    var d = defer()
+    resolver(
+      d.resolve.bind(d),
+      d.reject.bind(d)
+    )
+    return d.promise
   };
+  $Q.defer = defer
+  $Q.reject = reject
+  $Q.when = when
+  $Q.resolve = when
+  $Q.all = all
 
-  return {
-    defer: defer,
-    reject: reject,
-    when: when,
-    resolve: when,
-    all: all
-  }
+  return $Q
 
   // return Object.assign($Q, {
   //   defer: defer,
